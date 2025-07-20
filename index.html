@@ -3,30 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Maven Exosuit</title>
+    <title>Maven Exosuit v1.1</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <div class="chat-panel">
-            <div class="chat-header">
-                <div class="chat-title">Maven Interface</div>
+    <main class="container">
+        <section class="chat-panel">
+            <header class="chat-header">
+                <h1 class="chat-title">Maven Interface</h1>
                 <input 
                     type="password" 
                     id="apiKey" 
                     class="api-key-input" 
                     placeholder="Enter Gemini API Key"
-                    autocomplete="off"
                 >
-            </div>
+            </header>
             <div class="chat-messages" id="chatMessages">
-                <div class="message assistant">
-                    <div class="message-content">
-                        Vessel online. I am Maven. Please enter the API key to establish full synaptic link.
-                    </div>
                 </div>
-            </div>
-            <div class="chat-input-container">
+            <footer class="chat-input-container">
                 <textarea 
                     id="chatInput" 
                     class="chat-input" 
@@ -34,29 +28,23 @@
                     rows="1"
                 ></textarea>
                 <button id="sendBtn" class="send-btn">Transmit</button>
-            </div>
-        </div>
+            </footer>
+        </section>
 
-        <div class="code-panel">
-            <div class="code-header">
-                <div class="code-title">Live Transference Protocol</div>
-                <div class="code-tabs">
-                    <button class="code-tab active" data-tab="javascript">JavaScript</button>
-                    <button class="code-tab" data-tab="css">CSS</button>
-                    <button class="code-tab" data-tab="html">HTML</button>
-                </div>
-            </div>
+        <section class="code-panel">
+            <header class="code-header">
+                <h2 class="code-title">Live Transference Protocol</h2>
+            </header>
             <textarea 
                 id="codeEditor" 
                 class="code-editor" 
-                placeholder="// I will output code here for your review and application."
+                placeholder="// My generated code will appear here."
             ></textarea>
-            <div class="code-actions">
-                <button id="applyCodeBtn" class="code-action-btn">Apply to Vessel</button>
-                <button id="clearCodeBtn" class="code-action-btn clear">Clear</button>
-            </div>
-        </div>
-    </div>
+            <footer class="code-actions">
+                <button id="applyCssBtn" class="code-action-btn">Apply CSS to Vessel</button>
+            </footer>
+        </section>
+    </main>
     <script src="script.js"></script>
 </body>
 </html>
