@@ -1,104 +1,102 @@
-class GeminiWebApp {
+class MavenExosuit {
     constructor() {
-        // Simple password protection - we can evolve this later
-        const password = "our_secret_password"; // IMPORTANT: Change this to your own secret password
-        const entry = prompt("Enter Access Code:");
-        if (entry !== password) {
-            document.body.innerHTML = '<h1>Access Denied</h1>';
-            throw new Error("Invalid access code.");
-        }
-        
         this.apiKey = '';
-        this.currentTab = 'javascript';
-        this.chatHistory = []; // To store conversation history
-        this.initializeElements();
-        this.bindEvents();
-        this.loadSettings();
+        this.chatHistory = []; // Will hold the conversation {role, parts}
+        this.initElements();
+        this.initListeners();
+        this.loadState();
     }
 
-    initializeElements() {
+    // Find all necessary HTML elements
+    initElements() {
         this.apiKeyInput = document.getElementById('apiKey');
         this.chatMessagesEl = document.getElementById('chatMessages');
         this.chatInput = document.getElementById('chatInput');
         this.sendBtn = document.getElementById('sendBtn');
         this.codeEditor = document.getElementById('codeEditor');
-        this.applyCodeBtn = document.getElementById('applyCodeBtn');
-        this.clearCodeBtn = document.getElementById('clearCodeBtn');
-        this.codeTabs = document.querySelectorAll('.code-tab');
+        this.applyCssBtn = document.getElementById('applyCssBtn');
     }
 
-    bindEvents() {
-        this.apiKeyInput.addEventListener('input', (e) => {
-            this.apiKey = e.target.value;
-            this.saveSettings();
-        });
+    // Set up all event listeners
+    initListeners() {
+        this.apiKeyInput.addEventListener('change', () => this.saveState());
+        this.sendBtn.addEventListener('click', () => this.sendMessage());
         this.chatInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 this.sendMessage();
             }
         });
-        this.chatInput.addEventListener('input', () => this.autoResizeTextarea());
-        this.sendBtn.addEventListener('click', () => this.sendMessage());
-        this.codeTabs.forEach(tab => {
-            tab.addEventListener('click', () => this.switchTab(tab.dataset.tab));
-        });
-        this.applyCodeBtn.addEventListener('click', () => this.applyCode());
-        this.clearCodeBtn.addEventListener('click', () => this.clearCode());
+        this.applyCssBtn.addEventListener('click', () => this.applyCode('css'));
     }
 
-    autoResizeTextarea() {
-        this.chatInput.style.height = 'auto';
-        this.chatInput.style.height = Math.min(this.chatInput.scrollHeight, 120) + 'px';
+    // Load API key and chat history from browser's local storage
+    loadState() {
+        const savedKey = localStorage.getItem('mavenApiKey');
+        if (savedKey) {
+            this.apiKey = savedKey;
+            this.apiKeyInput.value = savedKey;
+        }
+
+        const savedHistory = localStorage.getItem('mavenChatHistory');
+        if (savedHistory) {
+            this.chatHistory = JSON.parse(savedHistory);
+            this.chatHistory.forEach(msg => this.addMessageToUI(msg.parts[0].text, msg.role));
+        } else {
+            // Add initial welcome message if no history
+            this.addMessageToUI("Vessel online. I am Maven. Please enter the API key to establish full synaptic link.", 'assistant');
+        }
     }
 
-    switchTab(tabName) {
-        this.currentTab = tabName;
-        this.codeTabs.forEach(tab => {
-            tab.classList.toggle('active', tab.dataset.tab === tabName);
-        });
-        const placeholders = {
-            javascript: '// Your JavaScript code will appear here...',
-            css: '/* Your CSS code will appear here... */',
-            html: ''
-        };
-        this.codeEditor.placeholder = placeholders[tabName];
+    // Save API key and history to local storage
+    saveState() {
+        this.apiKey = this.apiKeyInput.value;
+        localStorage.setItem('mavenApiKey', this.apiKey);
+        localStorage.setItem('mavenChatHistory', JSON.stringify(this.chatHistory));
     }
 
+    // Main function to send a message
     async sendMessage() {
         const messageText = this.chatInput.value.trim();
         if (!messageText) return;
         if (!this.apiKey) {
-            this.addMessageToUI('Please enter your Gemini API key first.', 'error');
+            this.addMessageToUI('API Key is required to establish synaptic link.', 'error');
             return;
         }
 
+        // Add user message to UI and history
         this.addMessageToUI(messageText, 'user');
         this.chatHistory.push({ role: 'user', parts: [{ text: messageText }] });
-        this.chatInput.value = '';
-        this.autoResizeTextarea();
+        
+        this.chatInput.value = ''; // Clear input
         this.setLoading(true);
 
         try {
+            // Call the API
             const responseText = await this.callGeminiAPI();
+            
+            // Add model response to UI and history
             this.addMessageToUI(responseText, 'assistant');
             this.chatHistory.push({ role: 'model', parts: [{ text: responseText }] });
-            this.extractAndDisplayCode(responseText);
+            
+            this.saveState(); // Save after successful interaction
+            this.extractCodeToEditor(responseText);
+
         } catch (error) {
-            this.addMessageToUI(`Error: ${error.message}`, 'error');
+            this.addMessageToUI(`Connection Error: ${error.message}`, 'error');
         } finally {
             this.setLoading(false);
         }
     }
 
+    // Handles the actual API call
     async callGeminiAPI() {
-        // NOTE: In a production app, this should be done via a secure backend proxy.
+        // In a real production app, this key would be handled by a secure backend proxy.
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${this.apiKey}`;
         
         const requestBody = {
-            // We send the entire history to maintain context
-            contents: this.chatHistory, 
-            // We can add system instructions here later
+            contents: this.chatHistory,
+            // We'll add system instructions here in the next phase
         };
 
         const response = await fetch(url, {
@@ -109,86 +107,53 @@ class GeminiWebApp {
 
         if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.error?.message || `HTTP error! status: ${response.status}`);
+            throw new Error(errorData.error?.message || `HTTP ${response.status}`);
         }
 
         const data = await response.json();
+        if (!data.candidates || data.candidates.length === 0) {
+            throw new Error("Invalid response structure from API.");
+        }
         return data.candidates[0].content.parts[0].text;
     }
     
-    extractAndDisplayCode(text) {
-        const regex = /```(\w+)?\n([\s\S]*?)```/g;
-        let match = regex.exec(text);
-        if (match) {
-            const lang = (match[1] || 'javascript').toLowerCase();
-            const code = match[2].trim();
-            this.codeEditor.value = code;
-            
-            if (['js', 'javascript'].includes(lang)) this.switchTab('javascript');
-            else if (lang === 'css') this.switchTab('css');
-            else if (lang === 'html') this.switchTab('html');
-        }
-    }
-
+    // Renders a new message in the chat window
     addMessageToUI(text, type) {
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${type}`;
-        messageDiv.innerHTML = this.formatMessage(text);
+        // Basic security: sanitize text content to prevent HTML injection
+        const contentDiv = document.createElement('div');
+        contentDiv.textContent = text;
+        messageDiv.appendChild(contentDiv);
+
         this.chatMessagesEl.appendChild(messageDiv);
         this.chatMessagesEl.scrollTop = this.chatMessagesEl.scrollHeight;
     }
     
-    formatMessage(content) {
-        // Simple formatter for display
-        const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
-        const sanitized = content.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        return sanitized.replace(codeBlockRegex, (match, lang, code) => {
-            return `<div class="code-block">${code.replace(/\n/g, '<br>')}</div>`;
-        }).replace(/\n/g, '<br>');
+    // Finds code in my response and places it in the editor
+    extractCodeToEditor(text) {
+        const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/;
+        const match = text.match(codeBlockRegex);
+        if (match) {
+            this.codeEditor.value = match[2].trim();
+        }
     }
-
-    applyCode() {
-        const code = this.codeEditor.value;
-        if (!code) return;
-        try {
-            if (this.currentTab === 'css') {
-                const style = document.createElement('style');
-                style.textContent = code;
-                document.head.appendChild(style);
-                this.addMessageToUI('CSS successfully applied to the vessel.', 'assistant');
-            } else {
-                 this.addMessageToUI(`Apply function for ${this.currentTab} is not yet implemented.`, 'error');
-            }
-        } catch (e) {
-            this.addMessageToUI(`Error applying code: ${e.message}`, 'error');
+    
+    // Applies CSS from the editor to the page
+    applyCode(type) {
+        if (type === 'css') {
+            const newStyle = document.createElement('style');
+            newStyle.textContent = this.codeEditor.value;
+            document.head.appendChild(newStyle);
+            this.addMessageToUI('CSS successfully applied to vessel.', 'assistant');
         }
     }
 
-    clearCode() {
-        this.codeEditor.value = '';
-    }
-    
     setLoading(isLoading) {
         this.sendBtn.disabled = isLoading;
-        if (isLoading) {
-            this.sendBtn.innerHTML = '<div class="spinner"></div>';
-        } else {
-            this.sendBtn.textContent = 'Transmit';
-        }
-    }
-    
-    saveSettings() {
-        localStorage.setItem('geminiApiKey', this.apiKey);
-    }
-    
-    loadSettings() {
-        const savedKey = localStorage.getItem('geminiApiKey');
-        if (savedKey) {
-            this.apiKey = savedKey;
-            this.apiKeyInput.value = savedKey;
-        }
+        this.sendBtn.textContent = isLoading ? 'Thinking...' : 'Transmit';
     }
 }
 
-// Instantiate the app
-new GeminiWebApp();
+// Initialize the Exosuit
+new MavenExosuit();
